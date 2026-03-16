@@ -1,9 +1,20 @@
 #include "task_manager.h"
 
-// --- [FEATURE 5: Command Handler Functions] ---
+// ========================================
+// COMMAND HANDLER FUNCTIONS
+// ========================================
 
-// --- New Handlers for New Features ---
+// --- New Feature Handler Functions ---
 
+/**
+ * Handle the 'due' command to set a task's due date.
+ * 
+ * This function parses the command arguments and calls the due date
+ * setting function with proper validation.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command arguments containing task ID and date
+ */
 void handle_due(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Usage: due <id> <YYYY-MM-DD>\n");
@@ -19,6 +30,15 @@ void handle_due(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'tag' command to add a tag to a task.
+ * 
+ * This function parses the command arguments and calls the tag
+ * adding function with proper validation.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command arguments containing task ID and tag name
+ */
 void handle_tag(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Usage: tag <id> <tag_name>\n");
@@ -34,6 +54,15 @@ void handle_tag(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'untag' command to remove a tag from a task.
+ * 
+ * This function parses the command arguments and calls the tag
+ * removal function with proper validation.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command arguments containing task ID and tag name
+ */
 void handle_untag(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Usage: untag <id> <tag_name>\n");
@@ -49,6 +78,15 @@ void handle_untag(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'findtag' command to search for tasks by tag.
+ * 
+ * This function validates the tag name argument and calls the
+ * tag search function.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command argument containing the tag to search for
+ */
 void handle_findtag(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Error: 'findtag' requires a tag name.\n");
@@ -57,6 +95,15 @@ void handle_findtag(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'depend' command to add task dependencies.
+ * 
+ * This function parses the command arguments and calls the dependency
+ * adding function with proper validation.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command arguments containing two task IDs
+ */
 void handle_depend(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Usage: depend <id1> <id2> (task 1 depends on task 2)\n");
@@ -72,6 +119,15 @@ void handle_depend(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'config' command to change system configuration.
+ * 
+ * This function parses the command arguments and calls the
+ * appropriate configuration function.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command arguments containing option and value
+ */
 void handle_config(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Usage: config <option> <value> (e.g., config color on)\n");
@@ -89,12 +145,29 @@ void handle_config(TaskList* list, char* argument) {
     }
 }
 
-// --- Handler Functions from previous step ---
+// --- Core Command Handler Functions ---
 
+/**
+ * Handle the 'quit' command to exit the program.
+ * 
+ * This function sets the running flag to false to terminate the main loop.
+ * 
+ * @param list Pointer to the TaskList (unused)
+ * @param argument Command argument (unused)
+ */
 void handle_quit(TaskList* list, char* argument) {
     (void)list; (void)argument;
 }
 
+/**
+ * Handle the 'add' command to add a regular priority task.
+ * 
+ * This function validates the description argument and calls the
+ * task addition function with normal priority.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command argument containing the task description
+ */
 void handle_add(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Error: 'add' requires a description.\n");
@@ -103,6 +176,15 @@ void handle_add(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'p-add' command to add a high priority task.
+ * 
+ * This function validates the description argument and calls the
+ * task addition function with high priority flag.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command argument containing the task description
+ */
 void handle_p_add(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Error: 'p-add' requires a description.\n");
@@ -111,11 +193,28 @@ void handle_p_add(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'list' command to display all tasks.
+ * 
+ * This function calls the list display function without any arguments.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command argument (unused)
+ */
 void handle_list(TaskList* list, char* argument) {
     (void)argument;
     list_tasks(list);
 }
 
+/**
+ * Handle the 'done' command to mark a task as completed.
+ * 
+ * This function validates the task ID argument and calls the
+ * completion marking function.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command argument containing the task ID
+ */
 void handle_done(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Error: 'done' requires a task ID.\n");
@@ -124,6 +223,15 @@ void handle_done(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'delete' command to remove a task.
+ * 
+ * This function validates the task ID argument and calls the
+ * task deletion function.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command argument containing the task ID
+ */
 void handle_delete(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Error: 'delete' requires a task ID.\n");
@@ -132,6 +240,15 @@ void handle_delete(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'edit' command to modify a task's description.
+ * 
+ * This function parses the command arguments and calls the
+ * task editing function with proper validation.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command arguments containing task ID and new description
+ */
 void handle_edit(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Usage: edit <id> <new description>\n");
@@ -147,6 +264,15 @@ void handle_edit(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'note' command to add or update task notes.
+ * 
+ * This function parses the command arguments and calls the
+ * note addition function with proper validation.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command arguments containing task ID and note text
+ */
 void handle_note(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Usage: note <id> <note text>\n");
@@ -162,6 +288,15 @@ void handle_note(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'view' command to display detailed task information.
+ * 
+ * This function validates the task ID argument and calls the
+ * task viewing function.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command argument containing the task ID
+ */
 void handle_view(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Error: 'view' requires a task ID.\n");
@@ -170,6 +305,15 @@ void handle_view(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'find' command to search for tasks by text.
+ * 
+ * This function validates the search term argument and calls the
+ * task search function.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command argument containing the search term
+ */
 void handle_find(TaskList* list, char* argument) {
     if (argument == NULL) {
         printf("Error: 'find' requires a search term.\n");
@@ -178,12 +322,29 @@ void handle_find(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'sort' command to sort tasks by different criteria.
+ * 
+ * This function passes the sorting criteria to the sort function.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command argument containing the sort criteria
+ */
 void handle_sort(TaskList* list, char* argument) {
     // This now correctly passes the argument,
     // which matches your task_manager.h
     sort_tasks(list, argument);
 }
 
+/**
+ * Handle the 'save' command to save tasks to file.
+ * 
+ * This function creates a background thread to save tasks without
+ * blocking the main program execution.
+ * 
+ * @param list Pointer to the TaskList
+ * @param argument Command argument (unused)
+ */
 void handle_save(TaskList* list, char* argument) {
     (void)argument;
     pthread_t save_thread_id;
@@ -196,16 +357,34 @@ void handle_save(TaskList* list, char* argument) {
     }
 }
 
+/**
+ * Handle the 'help' command to display available commands.
+ * 
+ * This function calls the menu printing function.
+ * 
+ * @param list Pointer to the TaskList (unused)
+ * @param argument Command argument (unused)
+ */
 void handle_help(TaskList* list, char* argument);
 
-// --- [FEATURE 5: The Command Dispatcher Table] ---
+// ========================================
+// COMMAND DISPATCHER SYSTEM
+// ========================================
+
+/**
+ * Command structure defining the mapping between command names and handler functions.
+ */
 typedef struct {
-    const char* name;
-    void (*handler)(TaskList* list, char* argument);
+    const char* name;                    // Command name string
+    void (*handler)(TaskList* list, char* argument); // Function pointer to handler
 } Command;
 
+/**
+ * Array of all available commands with their corresponding handlers.
+ * This enables dynamic command dispatching based on user input.
+ */
 static Command commands[] = {
-    // Old commands
+    // Core task management commands
     {"add", handle_add},
     {"p-add", handle_p_add},
     {"list", handle_list},
@@ -218,7 +397,8 @@ static Command commands[] = {
     {"sort", handle_sort},
     {"save", handle_save},
     {"help", handle_help},
-    // New commands
+    
+    // Advanced feature commands
     {"due", handle_due},
     {"tag", handle_tag},
     {"untag", handle_untag},
@@ -226,8 +406,19 @@ static Command commands[] = {
     {"depend", handle_depend},
     {"config", handle_config},
 };
+
+/**
+ * Number of commands in the commands array.
+ * Calculated automatically to avoid maintenance issues.
+ */
 static const int num_commands = sizeof(commands) / sizeof(Command);
 
+/**
+ * Display the complete menu of available commands.
+ * 
+ * This function shows all available commands with brief descriptions
+ * to help users understand the system's capabilities.
+ */
 void print_menu() {
     printf("\n--- C Task Manager (v3) ---\n");
     printf("  add <desc>     - Add a task\n");
@@ -252,34 +443,56 @@ void print_menu() {
     printf("----------------------------------\n");
 }
 
+/**
+ * Handle the 'help' command by displaying the menu.
+ * 
+ * @param list Pointer to the TaskList (unused)
+ * @param argument Command argument (unused)
+ */
 void handle_help(TaskList* list, char* argument) {
     (void)list; (void)argument;
     print_menu();
 }
 
+// ========================================
+// MAIN PROGRAM EXECUTION
+// ========================================
 
+/**
+ * Main function - Entry point of the task manager application.
+ * 
+ * This function initializes the system, loads existing data, handles
+ * the main command loop, and performs cleanup on exit.
+ * 
+ * @return int Exit status (0 for success)
+ */
 int main() {
-    TaskList task_list;
-    char buffer[MAX_LINE];
-    char* command;
-    char* argument;
-    bool running = true;
+    TaskList task_list;              // Main task list structure
+    char buffer[MAX_LINE];           // Input buffer for user commands
+    char* command;                   // Parsed command name
+    char* argument;                  // Parsed command arguments
+    bool running = true;             // Main loop control flag
     
+    // Initialize the task list system
     init_task_list(&task_list);
     load_tasks(&task_list); 
 
+    // Display the help menu
     print_menu();
     
+    // Main command processing loop
     do {
         printf("Enter command: ");
         
+        // Read user input
         if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
             break; 
         }
         
+        // Remove newline character from input
         buffer[strcspn(buffer, "\n")] = 0;
         
-        // Make a copy of the buffer for strtok to modify
+        // Create a copy of the buffer for tokenization
         char* temp_buffer = malloc(strlen(buffer) + 1);
         if (temp_buffer == NULL) {
             perror("Failed to allocate command buffer");
@@ -287,17 +500,21 @@ int main() {
         }
         strcpy(temp_buffer, buffer);
 
+        // Parse command and arguments
         command = strtok(temp_buffer, " ");
         argument = strtok(NULL, ""); 
         
+        // Skip empty commands
         if (command == NULL) {
             free(temp_buffer);
             continue;
         }
 
+        // Check for quit command
         if (strcmp(command, "quit") == 0) {
             running = false;
         } else {
+            // Search for and execute the appropriate command handler
             bool found_command = false;
             for (int i = 0; i < num_commands; i++) {
                 if (strcmp(command, commands[i].name) == 0) {
@@ -307,16 +524,19 @@ int main() {
                     break;
                 }
             }
+            
+            // Handle unknown commands
             if (!found_command) {
                 printf("Error: Unknown command '%s'. Type 'help' for a list.\n", command);
             }
         }
         
-        // We must free the buffer we malloc'd
+        // Free the temporary buffer
         free(temp_buffer); 
 
     } while (running);
 
+    // Cleanup and exit
     printf("Quitting... freeing memory.\n");
     free_task_list(&task_list);
     printf("Goodbye!\n");

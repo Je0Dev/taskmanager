@@ -2,10 +2,21 @@
 #include "task_manager.h"
 #include <ctype.h> // For tolower
 
-// --- Helper Functions ---
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
 
-// Helper to get a task by ID (1-based index)
-// NOTE: This must be called *inside* a mutex lock!
+/**
+ * Helper function to get a task by its ID (1-based index).
+ * 
+ * This function converts the 1-based task ID to a 0-based array index
+ * and returns a pointer to the corresponding task. Must be called
+ * within a mutex lock for thread safety.
+ * 
+ * @param list Pointer to the TaskList
+ * @param task_id The 1-based ID of the task to retrieve
+ * @return Task* Pointer to the task, or NULL if not found
+ */
 Task* get_task_by_id(TaskList* list, int task_id) {
     if (task_id < 1 || task_id > list->count) {
         return NULL;
@@ -13,7 +24,16 @@ Task* get_task_by_id(TaskList* list, int task_id) {
     return list->tasks[task_id - 1];
 }
 
-// Helper to safely allocate or reallocate a string
+/**
+ * Helper function to safely allocate or reallocate a string.
+ * 
+ * This function handles both initial allocation and reallocation
+ * of string memory, with proper error handling and memory management.
+ * 
+ * @param s The source string to copy
+ * @param existing_ptr Existing string pointer (NULL for new allocation)
+ * @return char* Pointer to the new string, or existing_ptr on failure
+ */
 static char* safe_strdup(const char* s, char* existing_ptr) {
     if (s == NULL) return NULL;
     size_t len = strlen(s) + 1;
@@ -33,13 +53,32 @@ static char* safe_strdup(const char* s, char* existing_ptr) {
     return new_ptr;
 }
 
-// Helper for color output
+/**
+ * Helper function to get color codes based on configuration.
+ * 
+ * This function returns ANSI color codes if color output is enabled,
+ * or empty strings if color is disabled.
+ * 
+ * @param list Pointer to the TaskList
+ * @param color The color code to potentially return
+ * @return const char* Color code string or empty string
+ */
 static const char* get_color(TaskList* list, const char* color) {
     return list->color_enabled ? color : "";
 }
 
-// --- List Initialization / Deallocation ---
+// ========================================
+// LIST INITIALIZATION AND DEALLOCATION
+// ========================================
 
+/**
+ * Initialize the task list with default settings.
+ * 
+ * This function allocates initial memory for the task array,
+ * sets up the mutex lock, and initializes all counters and flags.
+ * 
+ * @param list Pointer to the TaskList to initialize
+ */
 void init_task_list(TaskList* list) {
     list->tasks = (Task**)malloc(10 * sizeof(Task*));
     if (list->tasks == NULL) {
@@ -52,39 +91,64 @@ void init_task_list(TaskList* list) {
     pthread_mutex_init(&list->lock, NULL);
 }
 
+/**
+ * Free all memory associated with the task list.
+ * 
+ * This function deallocates all tasks, their associated data,
+ * and the task list structure itself. Must be called when
+ * the program exits or the list is no longer needed.
+ * 
+ * @param list Pointer to the TaskList to free
+ */
 void free_task_list(TaskList* list) {
     pthread_mutex_lock(&list->lock);
     
+    // Free all tasks and their data
     for (int i = 0; i < list->count; i++) {
         Task* t = list->tasks[i];
         free(t->description);
         if (t->notes) free(t->notes);
         
-        // Free tags
+        // Free all tags
         for (int j = 0; j < t->tag_count; j++) {
             free(t->tags[j]);
         }
         if (t->tags) free(t->tags);
         
-        // Free dependencies
+        // Free dependencies array
         if (t->dependencies) free(t->dependencies);
         
         free(t);
     }
     
+    // Free the main tasks array
     free(list->tasks);
     pthread_mutex_destroy(&list->lock);
     
+    // Reset all pointers and counters
     list->tasks = NULL;
     list->count = 0;
     list->capacity = 0;
 }
 
-// --- Task Creation / Modification ---
+// ========================================
+// TASK CREATION AND MODIFICATION
+// ========================================
 
+/**
+ * Add a new task to the task list.
+ * 
+ * This function creates a new task with the given description and priority,
+ * allocates memory for all task components, and adds it to the list.
+ * 
+ * @param list Pointer to the TaskList
+ * @param description The task description text
+ * @param is_high_priority Flag indicating if task is high priority
+ */
 void add_task(TaskList* list, const char* description, bool is_high_priority) {
     pthread_mutex_lock(&list->lock);
 
+    // Check if we need to resize the tasks array
     if (list->count >= list->capacity) {
         list->capacity *= 2;
         list->tasks = (Task**)realloc(list->tasks, list->capacity * sizeof(Task*));
@@ -95,6 +159,7 @@ void add_task(TaskList* list, const char* description, bool is_high_priority) {
         }
     }
 
+    // Allocate and initialize new task
     Task* new_task = (Task*)calloc(1, sizeof(Task)); // calloc zeroes memory
     if (new_task == NULL) {
         perror("Failed to allocate new task");
@@ -102,21 +167,26 @@ void add_task(TaskList* list, const char* description, bool is_high_priority) {
         return;
     }
     
+    // Set task description
     new_task->description = safe_strdup(description, NULL);
-    // all other pointers (notes, tags, dependencies) are NULL
-    // all counts (tag_count, dep_count) are 0
-    // due_date is 0
+    // All other pointers (notes, tags, dependencies) are NULL from calloc
+    // All counts (tag_count, dep_count) are 0 from calloc
+    // due_date is 0 from calloc
     
+    // Set priority flag if requested
     if (is_high_priority) {
         new_task->status |= FLAG_HIGH_PRI;
     }
     
+    // Initialize tag array
     new_task->tag_capacity = 2; // Start with capacity for 2 tags
     new_task->tags = (char**)malloc(new_task->tag_capacity * sizeof(char*));
     
+    // Initialize dependencies array
     new_task->dep_capacity = 2; // Start with capacity for 2 dependencies
     new_task->dependencies = (int*)malloc(new_task->dep_capacity * sizeof(int));
 
+    // Add task to the list
     list->tasks[list->count] = new_task;
     list->count++;
 
@@ -125,7 +195,16 @@ void add_task(TaskList* list, const char* description, bool is_high_priority) {
     pthread_mutex_unlock(&list->lock);
 }
 
-// [Feature 5] Helper to check dependencies
+/**
+ * Helper function to check task dependencies before completion.
+ * 
+ * This function verifies that all dependencies of a task are completed
+ * before allowing the task itself to be marked as complete.
+ * 
+ * @param list Pointer to the TaskList (must be locked)
+ * @param task Pointer to the task to check
+ * @return bool true if all dependencies are met, false otherwise
+ */
 static bool check_dependencies(TaskList* list, Task* task) {
     // Assumes list is already locked
     for (int i = 0; i < task->dep_count; i++) {
@@ -141,6 +220,16 @@ static bool check_dependencies(TaskList* list, Task* task) {
     return true; // All dependencies met
 }
 
+/**
+ * Mark a task as completed with dependency checking.
+ * 
+ * This function checks if all dependencies are completed before
+ * marking the task as complete. If dependencies exist, it prompts
+ * the user for confirmation to override the dependency check.
+ * 
+ * @param list Pointer to the TaskList
+ * @param task_id The ID of the task to mark complete
+ */
 void mark_task_complete(TaskList* list, int task_id) {
     pthread_mutex_lock(&list->lock);
     Task* task = get_task_by_id(list, task_id);
@@ -150,7 +239,7 @@ void mark_task_complete(TaskList* list, int task_id) {
         return;
     }
 
-    // [Feature 5] Check dependencies first
+    // Check dependencies first
     if (!check_dependencies(list, task)) {
         printf("Task has incomplete dependencies. Mark complete anyway? (y/n): ");
         pthread_mutex_unlock(&list->lock); // Unlock to read input
@@ -176,6 +265,15 @@ void mark_task_complete(TaskList* list, int task_id) {
     pthread_mutex_unlock(&list->lock);
 }
 
+/**
+ * Delete a task from the list and update dependencies.
+ * 
+ * This function removes a task from the list, frees all associated
+ * memory, and updates any dependencies that reference the deleted task.
+ * 
+ * @param list Pointer to the TaskList
+ * @param task_id The ID of the task to delete
+ */
 void delete_task(TaskList* list, int task_id) {
     pthread_mutex_lock(&list->lock);
     
@@ -189,7 +287,7 @@ void delete_task(TaskList* list, int task_id) {
     int index = task_id - 1;
     printf("Deleting task: %s\n", task_to_delete->description);
 
-    // 1. Free all internal dynamic memory
+    // Free all internal dynamic memory
     free(task_to_delete->description);
     if (task_to_delete->notes) free(task_to_delete->notes);
     for (int j = 0; j < task_to_delete->tag_count; j++) {
@@ -198,10 +296,10 @@ void delete_task(TaskList* list, int task_id) {
     free(task_to_delete->tags);
     free(task_to_delete->dependencies);
     
-    // 2. Free the struct itself
+    // Free the struct itself
     free(task_to_delete);
     
-    // 3. Shift pointers in the main array
+    // Shift pointers in the main array
     int num_to_move = list->count - index - 1;
     if (num_to_move > 0) {
         memmove(
@@ -211,18 +309,17 @@ void delete_task(TaskList* list, int task_id) {
         );
     }
     
-    // 4. Decrement count
+    // Decrement count
     list->count--;
     
-    // 5. [Crucial!] Update dependency IDs
+    // Update dependency IDs for remaining tasks
     // Any task that depended on a task *after* this one
     // now needs its ID decremented.
     for(int i = 0; i < list->count; i++) {
         Task* t = list->tasks[i];
         for (int j = 0; j < t->dep_count; j++) {
             if (t->dependencies[j] == task_id) {
-                // This dependency is now invalid. For simplicity, we'll remove it.
-                // (A more complex system might block deletion or re-assign)
+                // This dependency is now invalid. Remove it.
                 printf("Note: Removing dependency on deleted task %d from task %d.\n", task_id, i+1);
                 int num_to_move_deps = t->dep_count - j - 1;
                 if (num_to_move_deps > 0) {
@@ -240,6 +337,15 @@ void delete_task(TaskList* list, int task_id) {
     pthread_mutex_unlock(&list->lock);
 }
 
+/**
+ * Edit the description of an existing task.
+ * 
+ * This function updates the description of a task with new text.
+ * 
+ * @param list Pointer to the TaskList
+ * @param task_id The ID of the task to edit
+ * @param new_description The new description text
+ */
 void edit_task(TaskList* list, int task_id, const char* new_description) {
     pthread_mutex_lock(&list->lock);
     Task* task = get_task_by_id(list, task_id);
@@ -252,6 +358,15 @@ void edit_task(TaskList* list, int task_id, const char* new_description) {
     pthread_mutex_unlock(&list->lock);
 }
 
+/**
+ * Add or update notes for a task.
+ * 
+ * This function sets or updates the notes field for a specific task.
+ * 
+ * @param list Pointer to the TaskList
+ * @param task_id The ID of the task
+ * @param note_text The note text to add
+ */
 void add_note(TaskList* list, int task_id, const char* note_text) {
     pthread_mutex_lock(&list->lock);
     Task* task = get_task_by_id(list, task_id);
@@ -264,8 +379,20 @@ void add_note(TaskList* list, int task_id, const char* note_text) {
     pthread_mutex_unlock(&list->lock);
 }
 
-// --- Traversal & Viewing ---
+// ========================================
+// TASK TRAVERSAL AND VIEWING
+// ========================================
 
+/**
+ * Traverse all tasks and apply a function to each.
+ * 
+ * This function iterates through all tasks in the list and calls
+ * the provided action function for each task, passing optional user data.
+ * 
+ * @param list Pointer to the TaskList
+ * @param action_func Function pointer to apply to each task
+ * @param user_data Optional data to pass to the action function
+ */
 void traverse_tasks(TaskList* list, void (*action_func)(Task* task, void* user_data), void* user_data) {
     pthread_mutex_lock(&list->lock);
     for (int i = 0; i < list->count; i++) {
@@ -274,14 +401,26 @@ void traverse_tasks(TaskList* list, void (*action_func)(Task* task, void* user_d
     pthread_mutex_unlock(&list->lock);
 }
 
+/**
+ * Helper function to print a single task in simple format.
+ * 
+ * This function prints task information including ID, status, priority,
+ * due date, and tags in a compact format suitable for list display.
+ * 
+ * @param task Pointer to the task to print
+ * @param user_data Pointer to the TaskList for color configuration
+ */
 static void print_task_simple(Task* task, void* user_data) {
     TaskList* list = (TaskList*)user_data;
     static int task_num = 1;
+    
+    // Reset counter when called with NULL
     if (task == NULL) {
         task_num = 1;
         return;
     }
     
+    // Get color codes based on configuration
     const char* C_RST = get_color(list, COLOR_RESET);
     const char* C_PRI = get_color(list, COLOR_RED);
     const char* C_DON = get_color(list, COLOR_GREEN);
@@ -289,23 +428,26 @@ static void print_task_simple(Task* task, void* user_data) {
     const char* C_DATE = get_color(list, COLOR_YELLOW);
     const char* C_TAG = get_color(list, COLOR_CYAN);
 
+    // Determine status and priority characters
     char status_char = (task->status & FLAG_COMPLETED) ? 'X' : ' ';
     char pri_char = (task->status & FLAG_HIGH_PRI) ? '!' : ' ';
     char note_char = (task->notes != NULL) ? 'N' : ' ';
     
+    // Print task header
     printf("%s%2d. [%c] %s%c%s %c ", C_TXT, task_num++, status_char, 
            (pri_char == '!') ? C_PRI : C_TXT, pri_char, C_TXT, note_char);
            
-    // Print Due Date
+    // Print Due Date if set
     if (task->due_date != 0) {
         char date_buf[11];
         strftime(date_buf, 11, "%Y-%m-%d", localtime(&task->due_date));
         printf("%s(%s)%s ", C_DATE, date_buf, C_TXT);
     }
     
+    // Print description
     printf("%s", task->description);
     
-    // Print Tags
+    // Print Tags if any
     if (task->tag_count > 0) {
         printf(" %s[", C_TAG);
         for (int i = 0; i < task->tag_count; i++) {
@@ -316,6 +458,14 @@ static void print_task_simple(Task* task, void* user_data) {
     printf("%s\n", C_RST);
 }
 
+/**
+ * Display all tasks in the list with formatted output.
+ * 
+ * This function shows all tasks with their ID, status, priority,
+ * due dates, and tags in a formatted list view.
+ * 
+ * @param list Pointer to the TaskList to display
+ */
 void list_tasks(TaskList* list) {
     printf("\n--- Your Tasks ---\n");
     if (list->count == 0) {
@@ -327,6 +477,15 @@ void list_tasks(TaskList* list) {
     printf("------------------\n");
 }
 
+/**
+ * Display detailed information about a specific task.
+ * 
+ * This function shows comprehensive task information including
+ * description, status, priority, due date, notes, tags, and dependencies.
+ * 
+ * @param list Pointer to the TaskList
+ * @param task_id The ID of the task to view
+ */
 void view_task(TaskList* list, int task_id) {
     pthread_mutex_lock(&list->lock);
     Task* task = get_task_by_id(list, task_id);
@@ -336,6 +495,7 @@ void view_task(TaskList* list, int task_id) {
         return;
     }
     
+    // Get color codes
     const char* C_RST = get_color(list, COLOR_RESET);
     const char* C_PRI = get_color(list, COLOR_RED);
     const char* C_DON = get_color(list, COLOR_GREEN);
@@ -344,19 +504,20 @@ void view_task(TaskList* list, int task_id) {
 
     printf("\n--- Task %d Details ---%s\n", task_id, C_RST);
     
+    // Display description
     printf("Description: %s\n", task->description);
     
-    // Status
+    // Display status
     char status_char = (task->status & FLAG_COMPLETED) ? 'X' : ' ';
     const char* status_color = (status_char == 'X') ? C_DON : C_YLW;
     printf("Status:      %s[%c] %s%s\n", status_color, status_char, (status_char == 'X' ? "Complete" : "Pending"), C_RST);
     
-    // Priority
+    // Display priority
     char pri_char = (task->status & FLAG_HIGH_PRI) ? '!' : ' ';
     const char* pri_color = (pri_char == '!') ? C_PRI : C_RST;
     printf("Priority:    %s[%c] %s%s\n", pri_color, pri_char, (pri_char == '!' ? "High" : "Normal"), C_RST);
     
-    // Due Date
+    // Display due date
     printf("Due Date:    %s", C_YLW);
     if (task->due_date != 0) {
         char date_buf[20];
@@ -367,10 +528,10 @@ void view_task(TaskList* list, int task_id) {
     }
     printf("%s", C_RST);
     
-    // Notes
+    // Display notes
     printf("Notes:       %s\n", task->notes ? task->notes : "(none)");
     
-    // Tags
+    // Display tags
     printf("Tags:        %s", C_CYN);
     if (task->tag_count == 0) {
         printf("(none)\n");
@@ -382,7 +543,7 @@ void view_task(TaskList* list, int task_id) {
     }
     printf("%s", C_RST);
     
-    // Dependencies
+    // Display dependencies
     printf("Dependencies:%s", C_PRI);
     if (task->dep_count == 0) {
         printf(" (none)\n");
@@ -402,9 +563,20 @@ void view_task(TaskList* list, int task_id) {
     pthread_mutex_unlock(&list->lock);
 }
 
-// --- Feature Implementation ---
+// ========================================
+// FEATURE IMPLEMENTATION FUNCTIONS
+// ========================================
 
-// [Feature 1] Add Due Date
+/**
+ * Set a due date for a task.
+ * 
+ * This function parses a date string in YYYY-MM-DD format and sets
+ * it as the due date for the specified task.
+ * 
+ * @param list Pointer to the TaskList
+ * @param task_id The ID of the task
+ * @param date_str Date string in YYYY-MM-DD format
+ */
 void add_due_date(TaskList* list, int task_id, const char* date_str) {
     pthread_mutex_lock(&list->lock);
     Task* task = get_task_by_id(list, task_id);
@@ -426,7 +598,16 @@ void add_due_date(TaskList* list, int task_id, const char* date_str) {
     pthread_mutex_unlock(&list->lock);
 }
 
-// [Feature 2] Add Tag
+/**
+ * Add a tag to a task.
+ * 
+ * This function adds a new tag to a task's tag list, checking for
+ * duplicates and resizing the tag array if necessary.
+ * 
+ * @param list Pointer to the TaskList
+ * @param task_id The ID of the task
+ * @param tag_name The tag to add
+ */
 void add_tag(TaskList* list, int task_id, const char* tag_name) {
     pthread_mutex_lock(&list->lock);
     Task* task = get_task_by_id(list, task_id);
@@ -464,7 +645,16 @@ void add_tag(TaskList* list, int task_id, const char* tag_name) {
     pthread_mutex_unlock(&list->lock);
 }
 
-// [Feature 2] Remove Tag
+/**
+ * Remove a tag from a task.
+ * 
+ * This function removes a specific tag from a task's tag list and
+ * shifts the remaining tags to fill the gap.
+ * 
+ * @param list Pointer to the TaskList
+ * @param task_id The ID of the task
+ * @param tag_name The tag to remove
+ */
 void remove_tag(TaskList* list, int task_id, const char* tag_name) {
     pthread_mutex_lock(&list->lock);
     Task* task = get_task_by_id(list, task_id);
@@ -503,7 +693,15 @@ void remove_tag(TaskList* list, int task_id, const char* tag_name) {
     pthread_mutex_unlock(&list->lock);
 }
 
-// [Feature 3] Find by Tag
+/**
+ * Find and display all tasks that have a specific tag.
+ * 
+ * This function searches through all tasks and displays those
+ * that contain the specified tag.
+ * 
+ * @param list Pointer to the TaskList
+ * @param search_tag The tag to search for
+ */
 static void find_tag_action(Task* task, void* user_data) {
     const char* search_tag = (const char*)user_data;
     static int num_found = 0;
@@ -513,22 +711,29 @@ static void find_tag_action(Task* task, void* user_data) {
         return;
     }
     
+    // Check if task has the search tag
     for (int i = 0; i < task->tag_count; i++) {
         if (strcmp(task->tags[i], search_tag) == 0) {
             if (num_found == 0) {
                  print_task_simple(NULL, NULL); // Reset list counter
             }
             num_found++;
-            // This is a bit of a hack to get the task ID
-            // A better way would be to pass the list and index
-            // For now, we just print the task
-            // We can't get the "task number" easily, so just list it
+            // Print task description (simplified display)
             printf("- %s\n", task->description); 
             break; 
         }
     }
 }
 
+/**
+ * Find and display all tasks that have a specific tag.
+ * 
+ * This function searches through all tasks and displays those
+ * that contain the specified tag.
+ * 
+ * @param list Pointer to the TaskList
+ * @param search_tag The tag to search for
+ */
 void find_by_tag(TaskList* list, const char* search_tag) {
     printf("\n--- Tasks tagged '%s' ---\n", search_tag);
     find_tag_action(NULL, NULL); // Reset counter
@@ -536,14 +741,35 @@ void find_by_tag(TaskList* list, const char* search_tag) {
     printf("---------------------------\n");
 }
 
-// [Feature 4] Multiple Sort Modes
-// Comparators
+/**
+ * Comparators for different sorting methods.
+ * 
+ * These functions implement comparison logic for qsort to sort
+ * tasks by name, priority, or due date.
+ */
+
+/**
+ * Compare two tasks by name (alphabetically).
+ * 
+ * @param a Pointer to first task pointer
+ * @param b Pointer to second task pointer
+ * @return int Comparison result (-1, 0, 1)
+ */
 static int compare_name(const void* a, const void* b) {
     Task* task_a = *(Task**)a;
     Task* task_b = *(Task**)b;
     return strcmp(task_a->description, task_b->description);
 }
 
+/**
+ * Compare two tasks by priority, then by name.
+ * 
+ * High priority tasks are sorted first, with name as tiebreaker.
+ * 
+ * @param a Pointer to first task pointer
+ * @param b Pointer to second task pointer
+ * @return int Comparison result (-1, 0, 1)
+ */
 static int compare_priority(const void* a, const void* b) {
     Task* task_a = *(Task**)a;
     Task* task_b = *(Task**)b;
@@ -554,6 +780,16 @@ static int compare_priority(const void* a, const void* b) {
     return compare_name(a, b); // Sub-sort by name
 }
 
+/**
+ * Compare two tasks by due date, then by priority.
+ * 
+ * Tasks with earlier due dates come first. Tasks without due dates
+ * are sorted to the end. Priority is used as a tiebreaker.
+ * 
+ * @param a Pointer to first task pointer
+ * @param b Pointer to second task pointer
+ * @return int Comparison result (-1, 0, 1)
+ */
 static int compare_date(const void* a, const void* b) {
     Task* task_a = *(Task**)a;
     Task* task_b = *(Task**)b;
@@ -567,11 +803,19 @@ static int compare_date(const void* a, const void* b) {
     return compare_priority(a, b); // Sub-sort by priority
 }
 
+/**
+ * Sort tasks by different criteria.
+ * 
+ * This function uses qsort with a selected comparator function
+ * to sort tasks by name, priority, or due date.
+ * 
+ * @param list Pointer to the TaskList
+ * @param sort_by "name", "pri", or "date" for sorting method
+ */
 void sort_tasks(TaskList* list, const char* sort_by) {
     pthread_mutex_lock(&list->lock);
     
-    // This is the core of the feature:
-    // A function pointer to hold the *chosen* comparator
+    // Select the appropriate comparator function
     int (*comparator)(const void*, const void*);
     
     if (sort_by == NULL || strcmp(sort_by, "name") == 0) {
@@ -588,15 +832,26 @@ void sort_tasks(TaskList* list, const char* sort_by) {
         comparator = compare_name;
     }
     
-    // Call qsort, passing our chosen function pointer
+    // Call qsort with the selected comparator
     qsort(list->tasks, list->count, sizeof(Task*), comparator);
     
     pthread_mutex_unlock(&list->lock);
     
+    // Display the sorted list
     list_tasks(list);
 }
 
-// [Feature 5] Add Dependency
+/**
+ * Add a dependency relationship between two tasks.
+ * 
+ * This function establishes that one task depends on another task
+ * being completed first. It includes validation to prevent circular
+ * dependencies and self-dependencies.
+ * 
+ * @param list Pointer to the TaskList
+ * @param task_id The ID of the task that depends on another
+ * @param dependency_id The ID of the task that must be completed first
+ */
 void add_dependency(TaskList* list, int task_id, int dependency_id) {
     if (task_id == dependency_id) {
         printf("Error: A task cannot depend on itself.\n");
@@ -613,7 +868,7 @@ void add_dependency(TaskList* list, int task_id, int dependency_id) {
         return;
     }
     
-    // Check for existing
+    // Check for existing dependency
     for (int i = 0; i < task->dep_count; i++) {
         if (task->dependencies[i] == dependency_id) {
             printf("Task %d already depends on task %d.\n", task_id, dependency_id);
@@ -622,7 +877,7 @@ void add_dependency(TaskList* list, int task_id, int dependency_id) {
         }
     }
     
-    // Resize if needed
+    // Resize dependencies array if needed
     if (task->dep_count >= task->dep_capacity) {
         task->dep_capacity *= 2;
         task->dependencies = (int*)realloc(task->dependencies, task->dep_capacity * sizeof(int));
@@ -635,7 +890,15 @@ void add_dependency(TaskList* list, int task_id, int dependency_id) {
     pthread_mutex_unlock(&list->lock);
 }
 
-// [Feature 6] Config Color
+/**
+ * Configure color output settings.
+ * 
+ * This function enables or disables color output in the terminal
+ * based on the user's preference.
+ * 
+ * @param list Pointer to the TaskList
+ * @param value "on" to enable colors, "off" to disable
+ */
 void config_color(TaskList* list, const char* value) {
     pthread_mutex_lock(&list->lock);
     if (strcmp(value, "on") == 0) {
@@ -650,8 +913,19 @@ void config_color(TaskList* list, const char* value) {
     pthread_mutex_unlock(&list->lock);
 }
 
-// --- Find Function (Original) ---
+// ========================================
+// SEARCH FUNCTIONS
+// ========================================
 
+/**
+ * Helper function for task search functionality.
+ * 
+ * This function searches for a text term in task descriptions and notes,
+ * displaying matching tasks in a simple format.
+ * 
+ * @param task Pointer to the task to search
+ * @param user_data Search term string
+ */
 static void search_task_action(Task* task, void* user_data) {
     const char* search_term = (const char*)user_data;
     static int num_found = 0;
@@ -661,16 +935,26 @@ static void search_task_action(Task* task, void* user_data) {
         return;
     }
     
+    // Search in description and notes
     if (strstr(task->description, search_term) || (task->notes && strstr(task->notes, search_term))) {
          if (num_found == 0) {
              print_task_simple(NULL, NULL); // Reset list counter
          }
          num_found++;
-         // This is still a hack, but it's consistent
+         // Display matching task
          printf("- %s\n", task->description);
     }
 }
 
+/**
+ * Find tasks by searching description and notes.
+ * 
+ * This function performs a full-text search across all tasks,
+ * looking for the specified search term in both descriptions and notes.
+ * 
+ * @param list Pointer to the TaskList
+ * @param search_term The text to search for
+ */
 void find_tasks(TaskList* list, const char* search_term) {
     printf("\n--- Search Results for '%s' ---\n", search_term);
     search_task_action(NULL, NULL); // Reset
@@ -678,12 +962,25 @@ void find_tasks(TaskList* list, const char* search_term) {
     printf("--------------------------------\n");
 }
 
-// --- File I/O (HEAVILY Updated) ---
+// ========================================
+// FILE I/O FUNCTIONS
+// ========================================
 
+// File format delimiters and markers
 #define FILE_DELIM "|"
 #define LIST_DELIM ","
 #define NULL_MARKER "!"
 
+/**
+ * Save all tasks to a file in the background using a separate thread.
+ * 
+ * This function runs in a separate thread to save task data to a file
+ * without blocking the main program execution. It uses mutex locking
+ * to ensure thread-safe access to the task data.
+ * 
+ * @param arg Pointer to the TaskList to save
+ * @return void* Always returns NULL
+ */
 void* save_tasks_thread(void* arg) {
     TaskList* list = (TaskList*)arg;
     
@@ -698,34 +995,33 @@ void* save_tasks_thread(void* arg) {
         return NULL;
     }
     
-    // Save config first
+    // Save configuration first
     fprintf(file, "config%scolor%s%s\n", FILE_DELIM, FILE_DELIM, list->color_enabled ? "on" : "off");
     
-    // Save tasks
+    // Save all tasks
     for (int i = 0; i < list->count; i++) {
         Task* t = list->tasks[i];
         
-        // Format:
-        // status|due_date|dep_count|dep1,dep2|tag_count|tag1,tag2|description|notes
+        // Format: status|due_date|dep_count|dep1,dep2|tag_count|tag1,tag2|description|notes
         
         fprintf(file, "%d%s", t->status, FILE_DELIM);
         fprintf(file, "%ld%s", t->due_date, FILE_DELIM);
         
-        // Dependencies
+        // Save dependencies
         fprintf(file, "%d%s", t->dep_count, FILE_DELIM);
         for(int j = 0; j < t->dep_count; j++) {
             fprintf(file, "%d%s", t->dependencies[j], (j == t->dep_count - 1) ? "" : LIST_DELIM);
         }
         fprintf(file, "%s", FILE_DELIM);
         
-        // Tags
+        // Save tags
         fprintf(file, "%d%s", t->tag_count, FILE_DELIM);
         for(int j = 0; j < t->tag_count; j++) {
             fprintf(file, "%s%s", t->tags[j], (j == t->tag_count - 1) ? "" : LIST_DELIM);
         }
         fprintf(file, "%s", FILE_DELIM);
         
-        // Description and Notes
+        // Save description and notes
         fprintf(file, "%s%s", t->description, FILE_DELIM);
         fprintf(file, "%s\n", t->notes ? t->notes : NULL_MARKER);
     }
@@ -738,6 +1034,15 @@ void* save_tasks_thread(void* arg) {
     return NULL;
 }
 
+/**
+ * Load tasks from a file and restore the system state.
+ * 
+ * This function reads task data from a file and reconstructs
+ * the task list with all associated data including descriptions,
+ * notes, tags, dependencies, and configuration settings.
+ * 
+ * @param list Pointer to the TaskList to populate
+ */
 void load_tasks(TaskList* list) {
     FILE* file = fopen(FILENAME, "r");
     if (file == NULL) {
@@ -745,14 +1050,14 @@ void load_tasks(TaskList* list) {
         return;
     }
     
-    char line[MAX_LINE * 4]; // Larger buffer
+    char line[MAX_LINE * 4]; // Larger buffer for complex lines
     int loaded_count = 0;
     
     while (fgets(line, sizeof(line), file) != NULL) {
         line[strcspn(line, "\n")] = 0;
         if (strlen(line) == 0) continue;
 
-        // Check for config line
+        // Check for configuration line
         if (strncmp(line, "config|", 7) == 0) {
             char* type = strtok(line, FILE_DELIM);
             char* option = strtok(NULL, FILE_DELIM);
@@ -763,10 +1068,9 @@ void load_tasks(TaskList* list) {
             continue;
         }
         
-        // --- Parse Task Line ---
+        // Parse task line
         
         // Add a new blank task
-        // We lock/unlock inside add_task
         add_task(list, "LOADING...", false);
         Task* t = list->tasks[list->count - 1]; // Get pointer to the new task
         
@@ -819,7 +1123,7 @@ void load_tasks(TaskList* list) {
                     }
                     break;
                 case 6: // Description
-                    // free the "LOADING..." description and replace it
+                    // Free the "LOADING..." description and replace it
                     free(t->description);
                     t->description = safe_strdup(token, NULL);
                     break;
