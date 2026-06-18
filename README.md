@@ -1,24 +1,24 @@
-# C - A Command-Line To-Do List
+# Another Command-Line To-Do List
 
-## 🚀 Key Features
+## ✨️ Features
 
-* **Task Management:** Add, delete, edit, and list all sorts of different tasks.
-* **Multithreaded Persistent Storage:** Everything can be saved to `tasks.dat` and it is then loaded on start. The `save` command uses `pthread` to save in the background, so you can keep working.
-* **Task Details:** Add notes, priority status, due dates, and tags to each task.
-* **Dependencies:** Define task dependencies (e.g., Task 1 must be done before Task 2, which has to be done before Task 4, etc.).
-* **Sorting:** Sort your list by name, priority, or due date.
-* **Searching:** Full-text search on descriptions/notes, or find tasks by a specific tag.
-* **Safe & Dynamic:** All data is dynamically allocated using `malloc`/`realloc`, with `pthread_mutex_t` locks to ensure thread safety.
+* **🍀 Task Management:** Add, delete, edit, and list all sorts of different tasks.
+* **🍀 Multithreaded Persistent Storage:** Everything can be saved to `tasks.dat` and it is then loaded on start. The `save` command uses `pthread` to save in the background, so you can keep working.
+* **🍀 Task Details:** Add notes, priority status, due dates, and tags to each task.
+* **🍀 Dependencies:** Define task dependencies (e.g., Task 1 must be done before Task 2, which has to be done before Task 4, etc.).
+* **🍀 Sorting:** Sort your list by name, priority, or due date.
+* **🍀 Searching:** Full-text search on descriptions/notes, or find tasks by a specific tag.
+* **🍀 Safe & Dynamic:** All data is dynamically allocated using `malloc`/`realloc`, with `pthread_mutex_t` locks to ensure thread safety.
 
 ## ⚙️ Compile & Run
 
 ```bash
-gcc task_manager.c task.c -o task_manager -pthread # POSIX threads library
+gcc task_manager.c task.c -o task_manager -pthread # POSIX threads library here as well
 ./task_manager #Linux,MacOs
 ./task_manager.exe #Windows
 ```
 
-## 📋 Command Reference
+## 📋 Reference
 
 ### Basic Task Management
 - `add <description>` - Add a regular priority task
@@ -45,7 +45,7 @@ gcc task_manager.c task.c -o task_manager -pthread # POSIX threads library
 - `help` - Display the complete command menu
 - `quit` - Exit the program
 
-## 🏗️ System Architecture
+## 🏗️ Architecture
 
 ### Thread Safety
 The task manager uses `pthread_mutex_t` locks to ensure thread-safe operations across all functions. The main data structure (`TaskList`) contains a mutex that protects access to the task array and all task data.
@@ -66,16 +66,16 @@ The save file uses a pipe-delimited (`|`) format with comma-separated lists for 
 status|due_date|dep_count|dep1,dep2|tag_count|tag1,tag2|description|notes
 ```
 
-## 🎨 Color Output
+## 🎨 Output
 
-The system supports optional color output for better visual distinction:
+The system supports *optional color output* for better visual distinction:
 - **Red** for high priority tasks
 - **Green** for completed tasks  
 - **Yellow** for due dates
 - **Cyan** for tags
 - **Gray** for completed task text
 
-Color output can be toggled with `config color on/off`.
+Color output can be toggled with `config color on/off`(probaly works still i think).
 
 ## 🔒 Dependency Management
 
@@ -107,3 +107,14 @@ Each task contains:
 ## 🔄 Threading Model
 
 The save operation uses a separate thread to avoid blocking the main command loop. This allows users to continue working while their data is being saved in the background. The mutex ensures that the save thread has exclusive access to the data during the save operation.
+
+
+## 👓 Licence
+
+Copyright © 2026 Je0Dev
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
