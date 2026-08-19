@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Testing / linting
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# App data
+tasks.json
+
+# OS / editor
+.DS_Store

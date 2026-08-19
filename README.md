@@ -1,120 +1,89 @@
-# Another Command-Line To-Do List
+# Task Manager
 
-## ✨️ Features
+A modern, **GUI-only** task manager rewritten in Python with
+[NiceGUI](https://nicegui.io/). The original C version (kept in `legacy/`) is
+no longer part of the app; the Python build adds a web dashboard, atomic JSON
+persistence, and a full `pytest` test suite while preserving every feature:
+tasks with notes, due dates, tags, priorities, dependency graphs, sorting,
+search, and color theming.
 
-* **🍀 Task Management:** Add, delete, edit, and list all sorts of different tasks.
-* **🍀 Multithreaded Persistent Storage:** Everything can be saved to `tasks.dat` and it is then loaded on start. The `save` command uses `pthread` to save in the background, so you can keep working.
-* **🍀 Task Details:** Add notes, priority status, due dates, and tags to each task.
-* **🍀 Dependencies:** Define task dependencies (e.g., Task 1 must be done before Task 2, which has to be done before Task 4, etc.).
-* **🍀 Sorting:** Sort your list by name, priority, or due date.
-* **🍀 Searching:** Full-text search on descriptions/notes, or find tasks by a specific tag.
-* **🍀 Safe & Dynamic:** All data is dynamically allocated using `malloc`/`realloc`, with `pthread_mutex_t` locks to ensure thread safety.
+## Features
 
-## ⚙️ Compile & Run
+- **Task management** - add, edit, delete, mark done; each task can carry a
+  description, notes, a due date, tags, and a high/low priority.
+- **Dependencies** - a task can depend on other tasks; completing it is
+  blocked while any dependency is unfinished, with a "complete anyway"
+  override.
+- **Sorting** - by description, priority, or due date.
+- **Search & filters** - full-text search over descriptions/notes and a
+  per-tag filter.
+- **Safe persistence** - atomic saves to `tasks.json` (auto-save every 30s,
+  save on key actions, plus a Save button).
+- **Stable IDs** - tasks keep monotonic integer IDs that are never renumbered
+  on delete, so dependency links always stay valid.
+
+## Quick start
 
 ```bash
-gcc task_manager.c task.c -o task_manager -pthread # POSIX threads library here as well
-./task_manager #Linux,MacOs
-./task_manager.exe #Windows
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python app.py            # dashboard at http://localhost:8080
 ```
 
-## 📋 Reference
+Optional native desktop window (needs `pip install pywebview`):
 
-### Basic Task Management
-- `add <description>` - Add a regular priority task
-- `p-add <description>` - Add a high priority task
-- `list` - Display all tasks with formatted output
-- `view <id>` - Show detailed information about a specific task
-- `done <id>` - Mark a task as completed (with dependency checking)
-- `edit <id> <new description>` - Modify a task's description
-- `note <id> <note text>` - Add or update notes for a task
-- `delete <id>` - Remove a task and update dependencies
-
-### Advanced Features
-- `due <id> <YYYY-MM-DD>` - Set a due date for a task
-- `tag <id> <tag>` - Add a tag to a task
-- `untag <id> <tag>` - Remove a tag from a task
-- `findtag <tag>` - Find all tasks with a specific tag
-- `depend <id1> <id2>` - Make task id1 depend on task id2
-- `sort <name|pri|date>` - Sort tasks by different criteria
-- `find <term>` - Search for tasks by text in description or notes
-
-### System Management
-- `save` - Save all tasks to file in the background
-- `config color <on|off>` - Enable or disable color output
-- `help` - Display the complete command menu
-- `quit` - Exit the program
-
-## 🏗️ Architecture
-
-### Thread Safety
-The task manager uses `pthread_mutex_t` locks to ensure thread-safe operations across all functions. The main data structure (`TaskList`) contains a mutex that protects access to the task array and all task data.
-
-### Memory Management
-- All strings are dynamically allocated using `malloc`/`realloc`
-- Memory is properly freed when tasks are deleted or the program exits
-- Helper functions like `safe_strdup()` handle both allocation and reallocation safely
-
-### Data Persistence
-- Tasks are saved to `tasks.dat` in a structured text format
-- The save operation runs in a background thread to avoid blocking the main program
-- Configuration settings (like color preferences) are also persisted
-
-### File Format
-The save file uses a pipe-delimited (`|`) format with comma-separated lists for arrays:
-```
-status|due_date|dep_count|dep1,dep2|tag_count|tag1,tag2|description|notes
+```bash
+TASK_MANAGER_NATIVE=1 .venv/bin/python app.py
 ```
 
-## 🎨 Output
+## Testing & quality
 
-The system supports *optional color output* for better visual distinction:
-- **Red** for high priority tasks
-- **Green** for completed tasks  
-- **Yellow** for due dates
-- **Cyan** for tags
-- **Gray** for completed task text
+```bash
+.venv/bin/python -m pytest -q         # 38 tests
+.venv/bin/ruff check task_manager/ tests/ app.py
+.venv/bin/mypy task_manager/ app.py
+```
 
-Color output can be toggled with `config color on/off`(probaly works still i think).
+## Repository layout
 
-## 🔒 Dependency Management
+| Path | Purpose |
+|------|---------|
+| `app.py` | Entry point: loads store, builds page, `ui.run(...)`. |
+| `task_manager/models.py` | Public `TaskStore` (combines query + mutation mixins). |
+| `task_manager/task.py` | `Task` dataclass, `DependencyError`. |
+| `task_manager/store_mutation.py` / `store_query.py` | `TaskStore` CRUD + query mixins. |
+| `task_manager/search.py` / `sorting.py` | Pure search/filter/sort helpers. |
+| `task_manager/storage.py` | Atomic JSON save/load (`tasks.json`). |
+| `task_manager/ui.py` | Dashboard layout, filters, add form, auto-save timer. |
+| `task_manager/ui_card.py` | Single task card rendering + per-task actions. |
+| `task_manager/ui_dialogs.py` | Edit / note / due-date dialogs. |
+| `task_manager/ui_relations.py` | Tags / dependencies dialogs. |
+| `task_manager/ui_confirm.py` | Force-complete / delete confirmation dialogs. |
+| `tests/` | `pytest` tests (models, storage, UI). |
+| `legacy/` | Original C implementation (reference only). |
 
-The system implements a dependency graph where tasks can depend on other tasks being completed first. When marking a task as complete, the system checks all dependencies and warns if any are incomplete. Users can override this check if needed.
+## Documentation
 
-## 📊 Sorting Capabilities
+- [CONSTRAINTS.md](CONSTRAINTS.md) - code & workflow constraints.
+- [CONTRIBUTING.md](CONTRIBUTING.md) - branching, commits, merge process.
+- [PLAN.md](PLAN.md) - implementation plan and roadmap.
+- [CHANGELOG.md](CHANGELOG.md) - release notes.
+- [AGENTS.md](AGENTS.md) - guidance for AI coding agents.
 
-Tasks can be sorted by three different criteria:
-1. **Name** - Alphabetical order by description
-2. **Priority** - High priority tasks first, then by name
-3. **Due Date** - Earliest dates first, tasks without dates go to the end
+## Feature-to-command mapping (C → Python)
 
-## 🔍 Search Functionality
+| C command | Python equivalent |
+|-----------|-------------------|
+| `add` / `p-add` | add form + high-priority toggle |
+| `done <id>` | done checkbox with dependency check / force override |
+| `edit` / `note` / `delete` | edit / note / delete dialogs |
+| `due` / `tag` / `untag` / `findtag` | due-date dialog / tag chips & filter |
+| `depend` | dependencies dialog |
+| `sort name\|pri\|date` | sort dropdown |
+| `find <term>` | search box |
+| `config color on/off` | color toggle |
+| `save` / background save | auto-save timer + Save button |
 
-Two search methods are available:
-1. **Full-text search** (`find`) - Searches both descriptions and notes
-2. **Tag search** (`findtag`) - Finds tasks by specific tags
+## Licence
 
-## 📝 Task Structure
-
-Each task contains:
-- **Description** - The main task text
-- **Notes** - Optional additional information
-- **Status flags** - Completion status and priority level
-- **Due date** - Optional deadline (Unix timestamp)
-- **Tags** - Array of string tags for categorization
-- **Dependencies** - Array of task IDs that must be completed first
-
-## 🔄 Threading Model
-
-The save operation uses a separate thread to avoid blocking the main command loop. This allows users to continue working while their data is being saved in the background. The mutex ensures that the save thread has exclusive access to the data during the save operation.
-
-
-## 👓 Licence
-
-Copyright © 2026 Je0Dev
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+MIT - see [LICENSE](LICENSE).
